@@ -78,23 +78,28 @@
 
         const previewUrl = useMemo( () => {
             if ( source !== SOURCE_EXTERNAL ) {
+                console.log( 'XEFI Preview: source is not external', source );
                 return '';
             }
 
             if ( combinedError ) {
+                console.log( 'XEFI Preview: combinedError present', combinedError );
                 return '';
             }
 
             // For direct images, show immediately
             if ( url && isDirectImage( url ) && isHttps( url ) ) {
+                console.log( 'XEFI Preview: showing direct image', url );
                 return url;
             }
 
             // For Flickr URLs, show resolved URL if available
             if ( url && isFlickrUrl( url ) && resolvedUrl ) {
+                console.log( 'XEFI Preview: showing resolved Flickr URL', resolvedUrl );
                 return resolvedUrl;
             }
 
+            console.log( 'XEFI Preview: no preview', { url, resolvedUrl, isFlickr: isFlickrUrl( url ) } );
             return '';
         }, [ source, url, resolvedUrl, combinedError ] );
 

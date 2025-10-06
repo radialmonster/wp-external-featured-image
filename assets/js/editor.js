@@ -5,7 +5,7 @@
 
     const { registerPlugin } = wp.plugins;
     const PluginDocumentSettingPanel = ( wp.editor && wp.editor.PluginDocumentSettingPanel ) || wp.editPost.PluginDocumentSettingPanel;
-    const { RadioControl, TextControl, Notice, Spinner } = wp.components;
+    const { RadioControl, TextControl, Notice, Spinner, ExternalLink } = wp.components;
     const { useSelect, useDispatch } = wp.data;
     const { __ } = wp.i18n;
     const { Fragment, createElement, useMemo, useEffect, useState, useRef } = wp.element;
@@ -13,13 +13,15 @@
 
     const data = window.XEFIEditorData || {};
     const strings = data.strings || {};
+    const ensureString = ( value ) => ( 'string' === typeof value ? value : '' );
+
     const validation = data.validation || {};
     const supportsFlickr = !! ( data.settings && data.settings.supportsFlickr );
+    const openGraphEnabled = !! ( data.settings && data.settings.openGraphEnabled );
+    const settingsUrl = ensureString( data.settings && data.settings.settingsUrl );
 
     const SOURCE_MEDIA = 'media';
     const SOURCE_EXTERNAL = 'external';
-
-    const ensureString = ( value ) => ( 'string' === typeof value ? value : '' );
 
     const isHttps = ( value ) => /^https:\/\//i.test( value );
     const imageExtensions = validation.imageExtensions || [ 'jpg', 'jpeg', 'png' ];
@@ -254,6 +256,35 @@
                 onChange: ( value ) => updateMeta( { _xefi_source: value } ),
             } ),
         ];
+
+        const ogNoticeContent = [];
+        if ( openGraphEnabled ) {
+            ogNoticeContent.push( strings.ogEnabled || __( 'Open Graph output is enabled for external images.', 'wp-external-featured-image' ) );
+        } else {
+            ogNoticeContent.push( strings.ogDisabled || __( 'Open Graph output is disabled. Enable it in settings so social platforms use the external image.', 'wp-external-featured-image' ) );
+        }
+
+        if ( settingsUrl ) {
+            ogNoticeContent.push(
+                createElement(
+                    'div',
+                    { style: { marginTop: '8px' } },
+                    createElement(
+                        ExternalLink,
+                        { href: settingsUrl },
+                        strings.manageOgSettings || __( 'Manage Open Graph settings', 'wp-external-featured-image' )
+                    )
+                )
+            );
+        }
+
+        children.push(
+            createElement(
+                Notice,
+                { status: openGraphEnabled ? 'success' : 'warning', isDismissible: false },
+                createElement.apply( null, [ Fragment, null ].concat( ogNoticeContent ) )
+            )
+        );
 
         if ( source === SOURCE_EXTERNAL ) {
             children.push(

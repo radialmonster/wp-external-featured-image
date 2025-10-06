@@ -14,7 +14,7 @@ WP External Featured Image lets editors use remote images as if they were native
 
 1. Copy the plugin folder into your WordPress `wp-content/plugins/` directory.
 2. Activate **WP External Featured Image** from the Plugins screen.
-3. Navigate to **Settings → External Featured Image** and enter your Flickr API key (required to resolve Flickr page URLs). Configure the default size preference, cache duration, and, if desired, enable Open Graph tags and provide a Facebook App ID for validation.
+3. Navigate to **Settings → External Featured Image** and enter your Flickr API key (required to resolve Flickr page URLs). Configure the default size preference, cache duration, and the Social Sharing options (toggle Open Graph/Twitter tags and provide a Facebook App ID if needed).
 
 ## Usage
 

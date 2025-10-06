@@ -28,7 +28,7 @@
     const isFlickrUrl = ( value ) => /^https:\/\/(?:www\.)?flickr\.com\/photos\/[^/]+\/\d+(?:\/|$)/i.test( value );
 
     const Panel = () => {
-        const { meta, source, url, resolvedUrl, error, hasFeatured, postId } = useSelect( ( select ) => {
+        const { meta, source, url, resolvedUrl, error, photoId, hasFeatured, postId } = useSelect( ( select ) => {
             const editor = select( 'core/editor' );
             const currentMeta = editor.getEditedPostAttribute( 'meta' ) || {};
             return {
@@ -37,6 +37,7 @@
                 url: ensureString( currentMeta._xefi_url ),
                 resolvedUrl: ensureString( currentMeta._xefi_resolved ),
                 error: ensureString( currentMeta._xefi_error ),
+                photoId: ensureString( currentMeta._xefi_photo_id ),
                 hasFeatured: !! editor.getEditedPostAttribute( 'featured_media' ),
                 postId: editor.getCurrentPostId ? editor.getCurrentPostId() : 0,
             };
@@ -110,7 +111,16 @@
             }
 
             if ( url && isDirectImage( url ) && isHttps( url ) ) {
-                setPreviewUrl( url );
+                if ( previewUrl !== url ) {
+                    setPreviewUrl( url );
+                }
+                if ( resolvedUrl !== url || error || photoId ) {
+                    updateMeta( {
+                        _xefi_resolved: url,
+                        _xefi_error: '',
+                        _xefi_photo_id: '',
+                    } );
+                }
                 setIsResolving( false );
                 return () => {
                     active = false;
@@ -119,7 +129,9 @@
 
             if ( url && isFlickrUrl( url ) ) {
                 if ( resolvedUrl ) {
-                    setPreviewUrl( resolvedUrl );
+                    if ( previewUrl !== resolvedUrl ) {
+                        setPreviewUrl( resolvedUrl );
+                    }
                     setIsResolving( false );
                     return () => {
                         active = false;
@@ -128,6 +140,13 @@
 
                 if ( ! supportsFlickr || ! apiFetch ) {
                     setPreviewUrl( '' );
+                    setIsResolving( false );
+                    return () => {
+                        active = false;
+                    };
+                }
+
+                if ( previewUrl ) {
                     setIsResolving( false );
                     return () => {
                         active = false;
@@ -154,7 +173,18 @@
                             }
 
                             requestRef.current = null;
-                            setPreviewUrl( ensureString( response && response.url ) );
+                            const resolvedResponseUrl = ensureString( response && response.url );
+                            const resolvedPhotoId = ensureString( response && response.photo_id );
+                            if ( resolvedResponseUrl ) {
+                                setPreviewUrl( resolvedResponseUrl );
+                                updateMeta( {
+                                    _xefi_resolved: resolvedResponseUrl,
+                                    _xefi_error: '',
+                                    _xefi_photo_id: resolvedPhotoId,
+                                } );
+                            } else {
+                                setPreviewUrl( '' );
+                            }
                             setRemoteError( '' );
                             setIsResolving( false );
                         } )
@@ -171,6 +201,11 @@
 
                             setRemoteError( message );
                             setPreviewUrl( '' );
+                            updateMeta( {
+                                _xefi_resolved: '',
+                                _xefi_error: message,
+                                _xefi_photo_id: '',
+                            } );
                             setIsResolving( false );
                         } );
                 }, 400 );
@@ -194,7 +229,7 @@
             return () => {
                 active = false;
             };
-        }, [ source, url, resolvedUrl, validationMessage, supportsFlickr, postId ] );
+        }, [ source, url, resolvedUrl, validationMessage, supportsFlickr, postId, error, photoId, previewUrl ] );
 
         const combinedError = validationMessage || remoteError || error;
 
@@ -223,7 +258,18 @@
                         help: strings.helperText || __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ),
                         value: url,
                         onChange: ( value ) => {
-                            updateMeta( { _xefi_url: value } );
+                            if ( value !== url ) {
+                                updateMeta( {
+                                    _xefi_url: value,
+                                    _xefi_resolved: '',
+                                    _xefi_error: '',
+                                    _xefi_photo_id: '',
+                                } );
+                                setPreviewUrl( '' );
+                                setRemoteError( '' );
+                            } else {
+                                updateMeta( { _xefi_url: value } );
+                            }
                         },
                     } ),
                     combinedError

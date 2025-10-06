@@ -24,6 +24,7 @@ define( 'XEFI_PLUGIN_FILE', __FILE__ );
 define( 'XEFI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'XEFI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
+require_once XEFI_PLUGIN_DIR . 'includes/class-xefi-encryption.php';
 require_once XEFI_PLUGIN_DIR . 'includes/class-xefi-flickr-resolver.php';
 require_once XEFI_PLUGIN_DIR . 'includes/class-xefi-plugin.php';
 

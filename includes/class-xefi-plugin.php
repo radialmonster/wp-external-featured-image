@@ -205,6 +205,9 @@ class Plugin {
 
         $settings = $this->get_settings();
 
+        // Decrypt the API key to check if Flickr is supported.
+        $flickr_api_key = ! empty( $settings['flickr_api_key'] ) ? Encryption::decrypt( $settings['flickr_api_key'] ) : '';
+
         wp_localize_script(
             $handle,
             'XEFIEditorData',
@@ -223,7 +226,7 @@ class Plugin {
                     'imageExtensions' => [ 'jpg', 'jpeg', 'png' ],
                 ],
                 'settings' => [
-                    'supportsFlickr' => ! empty( $settings['flickr_api_key'] ),
+                    'supportsFlickr' => ! empty( $flickr_api_key ),
                 ],
             ]
         );
@@ -408,7 +411,13 @@ class Plugin {
 
         $resolver = Flickr_Resolver::instance();
         $settings = $this->get_settings();
-        $result   = $resolver->resolve( $url, $settings );
+
+        // Decrypt the API key before passing to resolver.
+        if ( ! empty( $settings['flickr_api_key'] ) ) {
+            $settings['flickr_api_key'] = Encryption::decrypt( $settings['flickr_api_key'] );
+        }
+
+        $result = $resolver->resolve( $url, $settings );
 
         if ( is_wp_error( $result ) ) {
             if ( $resolved && ! $force ) {
@@ -543,8 +552,8 @@ class Plugin {
      */
     public function register_settings_page(): void {
         add_options_page(
-            __( 'External Featured Image', 'wp-external-featured-image' ),
-            __( 'External Featured Image', 'wp-external-featured-image' ),
+            __( 'WP External Featured Image', 'wp-external-featured-image' ),
+            __( 'WP External Featured Image', 'wp-external-featured-image' ),
             'manage_options',
             'xefi-settings',
             [ $this, 'render_settings_page' ]
@@ -611,7 +620,13 @@ class Plugin {
         $settings = $this->get_settings();
 
         if ( isset( $input['flickr_api_key'] ) ) {
-            $settings['flickr_api_key'] = sanitize_text_field( $input['flickr_api_key'] );
+            $api_key = sanitize_text_field( $input['flickr_api_key'] );
+
+            // If the input is obscured (starts with x's), don't update.
+            if ( '' !== $api_key && ! preg_match( '/^x+/', $api_key ) ) {
+                // Encrypt the API key before storing.
+                $settings['flickr_api_key'] = Encryption::encrypt( $api_key );
+            }
         }
 
         if ( isset( $input['size_preference'] ) && in_array( $input['size_preference'], [ 'optimize_social', 'largest_available' ], true ) ) {
@@ -652,7 +667,7 @@ class Plugin {
 
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'External Featured Image', 'wp-external-featured-image' ); ?></h1>
+            <h1><?php esc_html_e( 'WP External Featured Image', 'wp-external-featured-image' ); ?></h1>
             <form action="options.php" method="post">
                 <?php
                 settings_fields( 'xefi_settings' );
@@ -669,8 +684,15 @@ class Plugin {
      */
     public function render_setting_api_key(): void {
         $settings = $this->get_settings();
+        $api_key  = $settings['flickr_api_key'];
+
+        // Decrypt the stored API key to check if it exists.
+        $decrypted_key = '' !== $api_key ? Encryption::decrypt( $api_key ) : '';
+
+        // Obscure the decrypted key for display.
+        $display_value = '' !== $decrypted_key ? Encryption::obscure( $decrypted_key ) : '';
         ?>
-        <input type="text" class="regular-text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[flickr_api_key]" value="<?php echo esc_attr( $settings['flickr_api_key'] ); ?>" autocomplete="off" />
+        <input type="text" class="regular-text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[flickr_api_key]" value="<?php echo esc_attr( $display_value ); ?>" autocomplete="off" placeholder="<?php esc_attr_e( 'Enter your Flickr API key', 'wp-external-featured-image' ); ?>" />
         <p class="description"><?php esc_html_e( 'Required to resolve Flickr photo page URLs.', 'wp-external-featured-image' ); ?></p>
         <?php
     }

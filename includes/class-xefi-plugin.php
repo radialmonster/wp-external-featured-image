@@ -668,9 +668,113 @@ class Plugin {
 
         $url = esc_url( $data['url'] );
 
-        echo "\n<meta property=\"og:image\" content=\"{$url}\" />\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        $og_tags = [
+            'og:type'        => $this->get_og_type( $post_id ),
+            'og:description' => $this->get_og_description( $post_id ),
+            'og:locale'      => $this->get_og_locale(),
+            'og:url'         => $this->get_og_url( $post_id ),
+            'og:title'       => $this->get_og_title( $post_id ),
+            'og:image'       => $url,
+        ];
+
+        $logo = $this->get_og_logo_url( $post_id );
+        if ( $logo ) {
+            $og_tags['og:logo'] = $logo;
+        }
+
+        $og_tags = apply_filters( 'xefi_og_tags', $og_tags, $post_id );
+
+        foreach ( $og_tags as $property => $value ) {
+            if ( ! $value ) {
+                continue;
+            }
+
+            $value = 'og:url' === $property || 'og:image' === $property || 'og:logo' === $property
+                ? esc_url( $value )
+                : esc_attr( $value );
+
+            printf( "\n<meta property=\"%s\" content=\"%s\" />\n", esc_attr( $property ), $value ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        }
+
         echo '<meta name="twitter:card" content="summary_large_image" />' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         echo "<meta name=\"twitter:image\" content=\"{$url}\" />\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+    }
+
+    /**
+     * Determine the Open Graph type for the current object.
+     */
+    private function get_og_type( int $post_id ): string {
+        $type = 'article';
+
+        $post_type = get_post_type( $post_id );
+        if ( 'page' === $post_type ) {
+            $type = 'website';
+        }
+
+        return apply_filters( 'xefi_og_type', $type, $post_id );
+    }
+
+    /**
+     * Build an Open Graph description from the post excerpt or content.
+     */
+    private function get_og_description( int $post_id ): string {
+        $description = get_post_field( 'post_excerpt', $post_id );
+
+        if ( ! $description ) {
+            $content = get_post_field( 'post_content', $post_id );
+            $content = wp_strip_all_tags( (string) $content );
+            $description = wp_trim_words( $content, 55, '…' );
+        }
+
+        $description = wp_strip_all_tags( (string) $description );
+
+        return apply_filters( 'xefi_og_description', $description, $post_id );
+    }
+
+    /**
+     * Get the current site locale formatted for Open Graph.
+     */
+    private function get_og_locale(): string {
+        $locale = get_locale();
+
+        if ( $locale ) {
+            $locale = str_replace( '_', '-', $locale );
+        }
+
+        return apply_filters( 'xefi_og_locale', $locale );
+    }
+
+    /**
+     * Retrieve the canonical URL for the current object.
+     */
+    private function get_og_url( int $post_id ): string {
+        $url = get_permalink( $post_id );
+
+        return apply_filters( 'xefi_og_url', $url, $post_id );
+    }
+
+    /**
+     * Retrieve a sanitized Open Graph title for the post.
+     */
+    private function get_og_title( int $post_id ): string {
+        $title = get_the_title( $post_id );
+        $title = wp_strip_all_tags( (string) $title );
+
+        return apply_filters( 'xefi_og_title', $title, $post_id );
+    }
+
+    /**
+     * Attempt to load a site logo URL for Open Graph consumers.
+     */
+    private function get_og_logo_url( int $post_id ): string {
+        $logo_id = get_theme_mod( 'custom_logo' );
+        $logo    = '';
+
+        if ( $logo_id ) {
+            $logo = wp_get_attachment_image_url( $logo_id, 'full' );
+        }
+
+        return apply_filters( 'xefi_og_logo_url', $logo, $post_id );
     }
 
     /**

@@ -79,6 +79,10 @@ class Plugin {
         add_action( 'wp_head', [ $this, 'output_social_meta' ], 5 );
         add_action( 'admin_menu', [ $this, 'register_settings_page' ] );
         add_action( 'admin_init', [ $this, 'register_settings' ] );
+        add_filter(
+            'plugin_action_links_' . plugin_basename( XEFI_PLUGIN_FILE ),
+            [ $this, 'add_settings_link' ]
+        );
     }
 
     /**
@@ -545,6 +549,19 @@ class Plugin {
             'xefi-settings',
             [ $this, 'render_settings_page' ]
         );
+    }
+
+    /**
+     * Adds a settings shortcut to the Plugins listing.
+     */
+    public function add_settings_link( array $links ): array {
+        $url            = admin_url( 'options-general.php?page=xefi-settings' );
+        $settings_label = __( 'Settings', 'wp-external-featured-image' );
+        $settings_link  = sprintf( '<a href="%s">%s</a>', esc_url( $url ), esc_html( $settings_label ) );
+
+        array_unshift( $links, $settings_link );
+
+        return $links;
     }
 
     /**

@@ -35,7 +35,7 @@ class Plugin {
      */
     public const META_SOURCE        = '_xefi_source';
     public const META_URL           = '_xefi_url';
-    public const META_RESOLVED      = '_xefi_resolved_url';
+    public const META_RESOLVED      = '_xefi_resolved';
     public const META_RESOLVED_AT   = '_xefi_resolved_at';
     public const META_PHOTO_ID      = '_xefi_photo_id';
     public const META_ERROR         = '_xefi_error';

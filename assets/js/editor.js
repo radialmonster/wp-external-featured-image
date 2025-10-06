@@ -34,7 +34,7 @@
                 meta: currentMeta,
                 source: ensureString( currentMeta._xefi_source ) || SOURCE_MEDIA,
                 url: ensureString( currentMeta._xefi_url ),
-                resolvedUrl: ensureString( currentMeta._xefi_resolved_url ),
+                resolvedUrl: ensureString( currentMeta._xefi_resolved ),
                 error: ensureString( currentMeta._xefi_error ),
                 hasFeatured: !! editor.getEditedPostAttribute( 'featured_media' ),
             };

@@ -323,12 +323,6 @@ class Plugin {
      * Registers the classic editor meta box.
      */
     public function register_meta_box(): void {
-        // Don't show classic meta box in block editor since we have the panel.
-        $screen = get_current_screen();
-        if ( $screen && $screen->is_block_editor() ) {
-            return;
-        }
-
         $post_types = get_post_types_by_support( 'thumbnail' );
         foreach ( $post_types as $post_type ) {
             add_meta_box(

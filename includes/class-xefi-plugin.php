@@ -46,11 +46,13 @@ class Plugin {
      * Default settings.
      */
     protected $default_settings = [
-        'flickr_api_key'   => '',
-        'size_preference'  => 'optimize_social',
-        'cache_ttl_value'  => 24,
-        'cache_ttl_unit'   => 'hours',
-        'cache_ttl'        => DAY_IN_SECONDS,
+        'flickr_api_key'    => '',
+        'size_preference'   => 'optimize_social',
+        'cache_ttl_value'   => 24,
+        'cache_ttl_unit'    => 'hours',
+        'cache_ttl'         => DAY_IN_SECONDS,
+        'facebook_app_id'   => '',
+        'open_graph_enabled' => false,
     ];
 
     /**
@@ -643,6 +645,12 @@ class Plugin {
      * Output Open Graph and Twitter tags when needed.
      */
     public function output_social_meta(): void {
+        $setting_enabled = $this->is_open_graph_setting_enabled();
+
+        if ( ! $setting_enabled ) {
+            return;
+        }
+
         if ( ! is_singular() ) {
             return;
         }
@@ -656,7 +664,7 @@ class Plugin {
             return;
         }
 
-        $enabled = apply_filters( 'xefi_og_enabled', true, $post_id );
+        $enabled = apply_filters( 'xefi_og_enabled', $setting_enabled, $post_id );
         if ( ! $enabled ) {
             return;
         }
@@ -674,7 +682,9 @@ class Plugin {
             'og:locale'      => $this->get_og_locale(),
             'og:url'         => $this->get_og_url( $post_id ),
             'og:title'       => $this->get_og_title( $post_id ),
+            'og:site_name'   => $this->get_og_site_name(),
             'og:image'       => $url,
+            'fb:app_id'      => $this->get_fb_app_id(),
         ];
 
         $logo = $this->get_og_logo_url( $post_id );
@@ -711,6 +721,8 @@ class Plugin {
             $type = 'website';
         }
 
+        $type = $type ?: 'website';
+
         return apply_filters( 'xefi_og_type', $type, $post_id );
     }
 
@@ -727,6 +739,22 @@ class Plugin {
         }
 
         $description = wp_strip_all_tags( (string) $description );
+
+        if ( '' === $description ) {
+            $description = get_bloginfo( 'description', 'display' );
+        }
+
+        if ( ! is_string( $description ) ) {
+            $description = '';
+        }
+
+        $description = trim( $description );
+
+        if ( '' === $description ) {
+            $description = get_bloginfo( 'name', 'display' );
+        }
+
+        $description = $description ?: '';
 
         return apply_filters( 'xefi_og_description', $description, $post_id );
     }
@@ -750,6 +778,10 @@ class Plugin {
     private function get_og_url( int $post_id ): string {
         $url = get_permalink( $post_id );
 
+        if ( ! $url ) {
+            $url = home_url( '/' );
+        }
+
         return apply_filters( 'xefi_og_url', $url, $post_id );
     }
 
@@ -760,7 +792,52 @@ class Plugin {
         $title = get_the_title( $post_id );
         $title = wp_strip_all_tags( (string) $title );
 
+        if ( '' === $title ) {
+            $title = get_bloginfo( 'name', 'display' );
+        }
+
+        $title = $title ?: '';
+
         return apply_filters( 'xefi_og_title', $title, $post_id );
+
+    }
+
+    /**
+     * Retrieve the Open Graph site name value.
+     */
+    private function get_og_site_name(): string {
+        $site_name = get_bloginfo( 'name', 'display' );
+        $site_name = is_string( $site_name ) ? trim( wp_strip_all_tags( $site_name ) ) : '';
+
+        if ( '' === $site_name ) {
+            $site_name = wp_parse_url( home_url(), PHP_URL_HOST );
+        }
+
+        $site_name = is_string( $site_name ) ? $site_name : '';
+
+        return apply_filters( 'xefi_og_site_name', (string) $site_name );
+
+    }
+
+    /**
+     * Retrieve the configured Facebook App ID.
+     */
+    private function get_fb_app_id(): string {
+        $settings = $this->get_settings();
+        $app_id   = isset( $settings['facebook_app_id'] ) ? (string) $settings['facebook_app_id'] : '';
+
+        $app_id = trim( $app_id );
+
+        return apply_filters( 'xefi_fb_app_id', $app_id );
+    }
+
+    /**
+     * Check if Open Graph output is enabled in settings.
+     */
+    private function is_open_graph_setting_enabled(): bool {
+        $settings = $this->get_settings();
+
+        return ! empty( $settings['open_graph_enabled'] );
     }
 
     /**
@@ -827,6 +904,22 @@ class Plugin {
         );
 
         add_settings_field(
+            'xefi_facebook_app_id',
+            __( 'Facebook App ID', 'wp-external-featured-image' ),
+            [ $this, 'render_setting_facebook_app_id' ],
+            'xefi-settings',
+            'xefi_main'
+        );
+
+        add_settings_field(
+            'xefi_open_graph_enabled',
+            __( 'Output Open Graph tags', 'wp-external-featured-image' ),
+            [ $this, 'render_setting_open_graph_enabled' ],
+            'xefi-settings',
+            'xefi_main'
+        );
+
+        add_settings_field(
             'xefi_size_preference',
             __( 'Default size preference', 'wp-external-featured-image' ),
             [ $this, 'render_setting_size_preference' ],
@@ -864,6 +957,13 @@ class Plugin {
         } else {
             $settings['size_preference'] = 'optimize_social';
         }
+
+        if ( isset( $input['facebook_app_id'] ) ) {
+            $app_id = preg_replace( '/[^0-9]/', '', (string) $input['facebook_app_id'] );
+            $settings['facebook_app_id'] = $app_id;
+        }
+
+        $settings['open_graph_enabled'] = ! empty( $input['open_graph_enabled'] );
 
         $value = isset( $input['cache_ttl_value'] ) ? absint( $input['cache_ttl_value'] ) : $settings['cache_ttl_value'];
         $unit  = isset( $input['cache_ttl_unit'] ) && in_array( $input['cache_ttl_unit'], [ 'minutes', 'hours', 'days' ], true ) ? $input['cache_ttl_unit'] : $settings['cache_ttl_unit'];
@@ -921,6 +1021,33 @@ class Plugin {
         ?>
         <input type="text" class="regular-text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[flickr_api_key]" value="<?php echo esc_attr( $display_value ); ?>" autocomplete="off" placeholder="<?php esc_attr_e( 'Enter your Flickr API key', 'wp-external-featured-image' ); ?>" />
         <p class="description"><?php esc_html_e( 'Required to resolve Flickr photo page URLs.', 'wp-external-featured-image' ); ?></p>
+        <?php
+    }
+
+    /**
+     * Render Facebook App ID field.
+     */
+    public function render_setting_facebook_app_id(): void {
+        $settings = $this->get_settings();
+        $app_id   = isset( $settings['facebook_app_id'] ) ? (string) $settings['facebook_app_id'] : '';
+        ?>
+        <input type="text" class="regular-text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[facebook_app_id]" value="<?php echo esc_attr( $app_id ); ?>" placeholder="<?php esc_attr_e( 'Enter your Facebook App ID', 'wp-external-featured-image' ); ?>" />
+        <p class="description"><?php esc_html_e( 'Used for Facebook Open Graph validation.', 'wp-external-featured-image' ); ?></p>
+        <?php
+    }
+
+    /**
+     * Render Open Graph toggle field.
+     */
+    public function render_setting_open_graph_enabled(): void {
+        $settings = $this->get_settings();
+        $enabled  = ! empty( $settings['open_graph_enabled'] );
+        ?>
+        <label>
+            <input type="checkbox" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[open_graph_enabled]" value="1" <?php checked( $enabled ); ?> />
+            <?php esc_html_e( 'Enable Open Graph tags when no local featured image exists.', 'wp-external-featured-image' ); ?>
+        </label>
+        <p class="description"><?php esc_html_e( 'Leave unchecked if another SEO or social plugin manages these tags.', 'wp-external-featured-image' ); ?></p>
         <?php
     }
 

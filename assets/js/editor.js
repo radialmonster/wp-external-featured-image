@@ -8,7 +8,7 @@
     const { RadioControl, TextControl, Notice, Spinner } = wp.components;
     const { useSelect, useDispatch } = wp.data;
     const { __ } = wp.i18n;
-    const { Fragment, useMemo, useEffect, useState, useRef } = wp.element;
+    const { Fragment, createElement, useMemo, useEffect, useState, useRef } = wp.element;
     const apiFetch = wp.apiFetch;
 
     const data = window.XEFIEditorData || {};
@@ -198,69 +198,77 @@
 
         const combinedError = validationMessage || remoteError || error;
 
-        return (
-            <PluginDocumentSettingPanel
-                name="xefi-featured-image-source"
-                title={ strings.panelTitle || __( 'Featured Image Source', 'wp-external-featured-image' ) }
-                className="xefi-featured-image-panel"
-            >
-                <RadioControl
-                    selected={ source }
-                    options={ [
-                        { label: strings.mediaLibrary || __( 'Media Library', 'wp-external-featured-image' ), value: SOURCE_MEDIA },
-                        { label: strings.externalSource || __( 'External', 'wp-external-featured-image' ), value: SOURCE_EXTERNAL },
-                    ] }
-                    onChange={ ( value ) => updateMeta( { _xefi_source: value } ) }
-                />
-                { source === SOURCE_EXTERNAL && (
-                    <Fragment>
-                        <TextControl
-                            type="url"
-                            label={ strings.fieldLabel || __( 'External image or Flickr page URL', 'wp-external-featured-image' ) }
-                            help={ strings.helperText || __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ) }
-                            value={ url }
-                            onChange={ ( value ) => {
-                                updateMeta( { _xefi_url: value } );
-                            } }
-                        />
-                        { combinedError && (
-                            <Notice status="error" isDismissible={ false }>{ combinedError }</Notice>
-                        ) }
-                        { isResolving && ! previewUrl && (
-                            <div
-                                style={ {
+        return createElement(
+            PluginDocumentSettingPanel,
+            {
+                name: 'xefi-featured-image-source',
+                title: strings.panelTitle || __( 'Featured Image Source', 'wp-external-featured-image' ),
+                className: 'xefi-featured-image-panel',
+            },
+            createElement( RadioControl, {
+                selected: source,
+                options: [
+                    { label: strings.mediaLibrary || __( 'Media Library', 'wp-external-featured-image' ), value: SOURCE_MEDIA },
+                    { label: strings.externalSource || __( 'External', 'wp-external-featured-image' ), value: SOURCE_EXTERNAL },
+                ],
+                onChange: ( value ) => updateMeta( { _xefi_source: value } ),
+            } ),
+            source === SOURCE_EXTERNAL
+                ? createElement(
+                    Fragment,
+                    null,
+                    createElement( TextControl, {
+                        type: 'url',
+                        label: strings.fieldLabel || __( 'External image or Flickr page URL', 'wp-external-featured-image' ),
+                        help: strings.helperText || __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ),
+                        value: url,
+                        onChange: ( value ) => {
+                            updateMeta( { _xefi_url: value } );
+                        },
+                    } ),
+                    combinedError
+                        ? createElement( Notice, { status: 'error', isDismissible: false }, combinedError )
+                        : null,
+                    isResolving && ! previewUrl
+                        ? createElement(
+                            'div',
+                            {
+                                style: {
                                     marginTop: '12px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '8px',
-                                } }
-                            >
-                                <Spinner />
-                                <span>{ strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) }</span>
-                            </div>
-                        ) }
-                        { previewUrl && (
-                            <div style={ { marginTop: '12px' } }>
-                                <img
-                                    src={ previewUrl }
-                                    alt={ __( 'External featured image preview', 'wp-external-featured-image' ) }
-                                    style={ {
-                                        width: '100%',
-                                        height: 'auto',
-                                        borderRadius: '4px',
-                                        border: '1px solid #ddd'
-                                    } }
-                                />
-                            </div>
-                        ) }
-                    </Fragment>
-                ) }
-                { hasFeatured && (
-                    <Notice status="info" isDismissible={ false }>
-                        { strings.nativeOverride || __( 'A native featured image is set. It will override the external image.', 'wp-external-featured-image' ) }
-                    </Notice>
-                ) }
-            </PluginDocumentSettingPanel>
+                                },
+                            },
+                            createElement( Spinner, null ),
+                            createElement( 'span', null, strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) )
+                        )
+                        : null,
+                    previewUrl
+                        ? createElement(
+                            'div',
+                            { style: { marginTop: '12px' } },
+                            createElement( 'img', {
+                                src: previewUrl,
+                                alt: __( 'External featured image preview', 'wp-external-featured-image' ),
+                                style: {
+                                    width: '100%',
+                                    height: 'auto',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ddd',
+                                },
+                            } )
+                        )
+                        : null
+                )
+                : null,
+            hasFeatured
+                ? createElement(
+                    Notice,
+                    { status: 'info', isDismissible: false },
+                    strings.nativeOverride || __( 'A native featured image is set. It will override the external image.', 'wp-external-featured-image' )
+                )
+                : null
         );
     };
 

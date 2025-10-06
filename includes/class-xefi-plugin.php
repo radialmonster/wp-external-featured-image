@@ -200,7 +200,7 @@ class Plugin {
         wp_register_script(
             $handle,
             XEFI_PLUGIN_URL . 'assets/js/editor.js',
-            [ 'wp-data', 'wp-edit-post', 'wp-components', 'wp-element', 'wp-i18n', 'wp-plugins', 'wp-compose', 'wp-api-fetch' ],
+            [ 'wp-data', 'wp-edit-post', 'wp-components', 'wp-element', 'wp-i18n', 'wp-plugins', 'wp-compose', 'wp-api-fetch', 'wp-blocks' ],
             XEFI_PLUGIN_VERSION,
             true
         );

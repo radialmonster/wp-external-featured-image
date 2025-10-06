@@ -4,7 +4,7 @@
     }
 
     const { registerPlugin } = wp.plugins;
-    const { PluginDocumentSettingPanel } = wp.editPost;
+    const PluginDocumentSettingPanel = ( wp.editor && wp.editor.PluginDocumentSettingPanel ) || wp.editPost.PluginDocumentSettingPanel;
     const { RadioControl, TextControl, Notice, Spinner } = wp.components;
     const { useSelect, useDispatch } = wp.data;
     const { __ } = wp.i18n;

@@ -244,13 +244,7 @@
 
         console.log( 'XEFI render', { previewUrl, isResolving, combinedError, source } );
 
-        return createElement(
-            PluginDocumentSettingPanel,
-            {
-                name: 'xefi-featured-image-source',
-                title: strings.panelTitle || __( 'Featured Image Source', 'wp-external-featured-image' ),
-                className: 'xefi-featured-image-panel',
-            },
+        const children = [
             createElement( RadioControl, {
                 selected: source,
                 options: [
@@ -259,7 +253,10 @@
                 ],
                 onChange: ( value ) => updateMeta( { _xefi_source: value } ),
             } ),
-            source === SOURCE_EXTERNAL && [
+        ];
+
+        if ( source === SOURCE_EXTERNAL ) {
+            children.push(
                 createElement( TextControl, {
                     type: 'url',
                     label: strings.fieldLabel || __( 'External image or Flickr page URL', 'wp-external-featured-image' ),
@@ -279,43 +276,70 @@
                             updateMeta( { _xefi_url: value } );
                         }
                     },
-                } ),
-                combinedError && createElement( Notice, { status: 'error', isDismissible: false }, combinedError ),
-                isResolving && ! previewUrl && createElement(
-                    'div',
-                    {
-                        style: {
-                            marginTop: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
+                } )
+            );
+
+            if ( combinedError ) {
+                children.push( createElement( Notice, { status: 'error', isDismissible: false }, combinedError ) );
+            }
+
+            if ( isResolving && ! previewUrl ) {
+                children.push(
+                    createElement(
+                        'div',
+                        {
+                            style: {
+                                marginTop: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                            },
                         },
-                    },
-                    createElement( Spinner, null ),
-                    createElement( 'span', null, strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) )
-                ),
-                previewUrl && createElement(
-                    'div',
-                    { style: { marginTop: '12px' } },
-                    createElement( 'img', {
-                        src: previewUrl,
-                        alt: __( 'External featured image preview', 'wp-external-featured-image' ),
-                        style: {
-                            width: '100%',
-                            height: 'auto',
-                            borderRadius: '4px',
-                            border: '1px solid #ddd',
-                        },
-                    } )
-                )
-            ].filter( Boolean ),
-            hasFeatured
-                ? createElement(
+                        createElement( Spinner, null ),
+                        createElement( 'span', null, strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) )
+                    )
+                );
+            }
+
+            if ( previewUrl ) {
+                console.log( 'XEFI: Adding image to children', previewUrl );
+                children.push(
+                    createElement(
+                        'div',
+                        { style: { marginTop: '12px' } },
+                        createElement( 'img', {
+                            src: previewUrl,
+                            alt: __( 'External featured image preview', 'wp-external-featured-image' ),
+                            style: {
+                                width: '100%',
+                                height: 'auto',
+                                borderRadius: '4px',
+                                border: '1px solid #ddd',
+                            },
+                        } )
+                    )
+                );
+            }
+        }
+
+        if ( hasFeatured ) {
+            children.push(
+                createElement(
                     Notice,
                     { status: 'info', isDismissible: false },
                     strings.nativeOverride || __( 'A native featured image is set. It will override the external image.', 'wp-external-featured-image' )
                 )
-                : null
+            );
+        }
+
+        return createElement(
+            PluginDocumentSettingPanel,
+            {
+                name: 'xefi-featured-image-source',
+                title: strings.panelTitle || __( 'Featured Image Source', 'wp-external-featured-image' ),
+                className: 'xefi-featured-image-panel',
+            },
+            ...children
         );
     };
 

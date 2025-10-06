@@ -259,66 +259,56 @@
                 ],
                 onChange: ( value ) => updateMeta( { _xefi_source: value } ),
             } ),
-            source === SOURCE_EXTERNAL
-                ? createElement(
-                    Fragment,
-                    null,
-                    createElement( TextControl, {
-                        type: 'url',
-                        label: strings.fieldLabel || __( 'External image or Flickr page URL', 'wp-external-featured-image' ),
-                        help: strings.helperText || __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ),
-                        value: url,
-                        onChange: ( value ) => {
-                            if ( value !== url ) {
-                                updateMeta( {
-                                    _xefi_url: value,
-                                    _xefi_resolved: '',
-                                    _xefi_error: '',
-                                    _xefi_photo_id: '',
-                                } );
-                                setPreviewUrl( '' );
-                                setRemoteError( '' );
-                            } else {
-                                updateMeta( { _xefi_url: value } );
-                            }
+            source === SOURCE_EXTERNAL && [
+                createElement( TextControl, {
+                    type: 'url',
+                    label: strings.fieldLabel || __( 'External image or Flickr page URL', 'wp-external-featured-image' ),
+                    help: strings.helperText || __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ),
+                    value: url,
+                    onChange: ( value ) => {
+                        if ( value !== url ) {
+                            updateMeta( {
+                                _xefi_url: value,
+                                _xefi_resolved: '',
+                                _xefi_error: '',
+                                _xefi_photo_id: '',
+                            } );
+                            setPreviewUrl( '' );
+                            setRemoteError( '' );
+                        } else {
+                            updateMeta( { _xefi_url: value } );
+                        }
+                    },
+                } ),
+                combinedError && createElement( Notice, { status: 'error', isDismissible: false }, combinedError ),
+                isResolving && ! previewUrl && createElement(
+                    'div',
+                    {
+                        style: {
+                            marginTop: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
                         },
-                    } ),
-                    combinedError
-                        ? createElement( Notice, { status: 'error', isDismissible: false }, combinedError )
-                        : null,
-                    isResolving && ! previewUrl
-                        ? createElement(
-                            'div',
-                            {
-                                style: {
-                                    marginTop: '12px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                },
-                            },
-                            createElement( Spinner, null ),
-                            createElement( 'span', null, strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) )
-                        )
-                        : null,
-                    previewUrl
-                        ? createElement(
-                            'div',
-                            { style: { marginTop: '12px' } },
-                            createElement( 'img', {
-                                src: previewUrl,
-                                alt: __( 'External featured image preview', 'wp-external-featured-image' ),
-                                style: {
-                                    width: '100%',
-                                    height: 'auto',
-                                    borderRadius: '4px',
-                                    border: '1px solid #ddd',
-                                },
-                            } )
-                        )
-                        : null
+                    },
+                    createElement( Spinner, null ),
+                    createElement( 'span', null, strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) )
+                ),
+                previewUrl && createElement(
+                    'div',
+                    { style: { marginTop: '12px' } },
+                    createElement( 'img', {
+                        src: previewUrl,
+                        alt: __( 'External featured image preview', 'wp-external-featured-image' ),
+                        style: {
+                            width: '100%',
+                            height: 'auto',
+                            borderRadius: '4px',
+                            border: '1px solid #ddd',
+                        },
+                    } )
                 )
-                : null,
+            ].filter( Boolean ),
             hasFeatured
                 ? createElement(
                     Notice,

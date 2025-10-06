@@ -879,7 +879,7 @@ class Plugin {
      * Determine if the URL is a Flickr page.
      */
     protected function is_flickr_url( string $url ): bool {
-        return (bool) preg_match( '#^https://(?:www\.)?flickr\.com/photos/[^/]+/\d+/?#i', $url );
+        return (bool) preg_match( '#^https://(?:www\.)?flickr\.com/photos/[^/]+/\d+(?:/|$)#i', $url );
     }
 
     /**

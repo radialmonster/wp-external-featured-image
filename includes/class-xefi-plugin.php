@@ -205,10 +205,7 @@ class Plugin {
             true
         );
 
-        $settings = $this->get_settings();
-
-        // Decrypt the API key to check if Flickr is supported.
-        $flickr_api_key = ! empty( $settings['flickr_api_key'] ) ? Encryption::decrypt( $settings['flickr_api_key'] ) : '';
+        $settings = $this->with_decrypted_flickr_api_key();
 
         wp_localize_script(
             $handle,
@@ -229,7 +226,7 @@ class Plugin {
                     'imageExtensions' => [ 'jpg', 'jpeg', 'png' ],
                 ],
                 'settings' => [
-                    'supportsFlickr' => ! empty( $flickr_api_key ),
+                    'supportsFlickr' => '' !== $settings['flickr_api_key'],
                 ],
             ]
         );
@@ -297,11 +294,7 @@ class Plugin {
             return new WP_Error( 'xefi_invalid_url', __( 'Enter a direct .jpg/.png image URL or a Flickr photo URL.', 'wp-external-featured-image' ), [ 'status' => 400 ] );
         }
 
-        $settings = $this->get_settings();
-
-        if ( ! empty( $settings['flickr_api_key'] ) ) {
-            $settings['flickr_api_key'] = Encryption::decrypt( $settings['flickr_api_key'] );
-        }
+        $settings = $this->with_decrypted_flickr_api_key();
 
         $resolver = Flickr_Resolver::instance();
         $result   = $resolver->resolve( $url, $settings );
@@ -372,8 +365,8 @@ class Plugin {
             true
         );
 
-        $settings = $this->get_settings();
-        $flickr_api_key = ! empty( $settings['flickr_api_key'] ) ? Encryption::decrypt( $settings['flickr_api_key'] ) : '';
+        $settings       = $this->with_decrypted_flickr_api_key();
+        $flickr_api_key = $settings['flickr_api_key'];
 
         wp_localize_script(
             $handle,
@@ -383,7 +376,7 @@ class Plugin {
                     'imageExtensions' => [ 'jpg', 'jpeg', 'png' ],
                 ],
                 'settings' => [
-                    'supportsFlickr' => ! empty( $flickr_api_key ),
+                    'supportsFlickr' => '' !== $flickr_api_key,
                 ],
             ]
         );
@@ -548,12 +541,7 @@ class Plugin {
         }
 
         $resolver = Flickr_Resolver::instance();
-        $settings = $this->get_settings();
-
-        // Decrypt the API key before passing to resolver.
-        if ( ! empty( $settings['flickr_api_key'] ) ) {
-            $settings['flickr_api_key'] = Encryption::decrypt( $settings['flickr_api_key'] );
-        }
+        $settings = $this->with_decrypted_flickr_api_key();
 
         $result = $resolver->resolve( $url, $settings );
 
@@ -821,14 +809,11 @@ class Plugin {
      * Render Flickr API key field.
      */
     public function render_setting_api_key(): void {
-        $settings = $this->get_settings();
+        $settings = $this->with_decrypted_flickr_api_key();
         $api_key  = $settings['flickr_api_key'];
 
-        // Decrypt the stored API key to check if it exists.
-        $decrypted_key = '' !== $api_key ? Encryption::decrypt( $api_key ) : '';
-
         // Obscure the decrypted key for display.
-        $display_value = '' !== $decrypted_key ? Encryption::obscure( $decrypted_key ) : '';
+        $display_value = '' !== $api_key ? Encryption::obscure( $api_key ) : '';
         ?>
         <input type="text" class="regular-text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[flickr_api_key]" value="<?php echo esc_attr( $display_value ); ?>" autocomplete="off" placeholder="<?php esc_attr_e( 'Enter your Flickr API key', 'wp-external-featured-image' ); ?>" />
         <p class="description"><?php esc_html_e( 'Required to resolve Flickr photo page URLs.', 'wp-external-featured-image' ); ?></p>
@@ -878,6 +863,24 @@ class Plugin {
         }
 
         return wp_parse_args( $saved, $this->default_settings );
+    }
+
+    /**
+     * Return settings with a decrypted Flickr API key.
+     *
+     * @return array
+     */
+    protected function with_decrypted_flickr_api_key(): array {
+        $settings = $this->get_settings();
+
+        $api_key = isset( $settings['flickr_api_key'] ) ? (string) $settings['flickr_api_key'] : '';
+        if ( '' === $api_key ) {
+            $settings['flickr_api_key'] = '';
+            return $settings;
+        }
+
+        $settings['flickr_api_key'] = Encryption::decrypt( $api_key );
+        return $settings;
     }
 
     /**

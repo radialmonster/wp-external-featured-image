@@ -1,0 +1,1 @@
+# wp-external-featured-image

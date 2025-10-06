@@ -1,12 +1,12 @@
 # WP External Featured Image
 
-WP External Featured Image lets editors use remote images as if they were native featured images. Paste a direct `.jpg`/`.png` URL or a Flickr photo page and the plugin renders that image everywhere the theme calls `the_post_thumbnail()`. It also adds Open Graph and Twitter Card tags so social shares pick up the same image.
+WP External Featured Image lets editors use remote images as if they were native featured images. Paste a direct `.jpg`/`.png` URL or a Flickr photo page and the plugin renders that image everywhere the theme calls `the_post_thumbnail()`. When enabled in the settings, it can also add Open Graph and Twitter Card tags so social shares pick up the same image.
 
 ## Features
 
 - Toggle between native Media Library thumbnails and external URLs per post.
 - Automatic Flickr integration (no authentication required) that resolves the best size for social sharing.
-- Generates `<meta>` tags for Open Graph and Twitter when an external image is active.
+- Optional `<meta>` tags for Open Graph and Twitter when an external image is active, including sensible fallbacks so required tags are never blank.
 - Works with any theme that relies on `has_post_thumbnail()` / `the_post_thumbnail()` (including Twenty Twenty-Five).
 - Graceful error handling with inline editor notices and cached Flickr lookups to avoid repeat API calls.
 
@@ -14,7 +14,7 @@ WP External Featured Image lets editors use remote images as if they were native
 
 1. Copy the plugin folder into your WordPress `wp-content/plugins/` directory.
 2. Activate **WP External Featured Image** from the Plugins screen.
-3. Navigate to **Settings → External Featured Image** and enter your Flickr API key (required to resolve Flickr page URLs). Configure the default size preference and cache duration if needed.
+3. Navigate to **Settings → External Featured Image** and enter your Flickr API key (required to resolve Flickr page URLs). Configure the default size preference, cache duration, and, if desired, enable Open Graph tags and provide a Facebook App ID for validation.
 
 ## Usage
 
@@ -25,7 +25,7 @@ WP External Featured Image lets editors use remote images as if they were native
 3. Save or update the post. The plugin resolves Flickr URLs to the best available image size (preferring ≥1200px landscape when possible) and caches the result.
 4. On the front end, the external image is output wherever the theme requests the featured image. If you set a native featured image from the Media Library, it automatically overrides the external URL.
 
-The plugin also injects Open Graph and Twitter Card tags for external images so social platforms share the correct thumbnail. SEO plugins can disable this behaviour via the `xefi_og_enabled` filter.
+When enabled, the plugin also injects Open Graph and Twitter Card tags for external images so social platforms share the correct thumbnail. SEO plugins can disable this behaviour via the `xefi_og_enabled` filter or simply leave the checkbox disabled if another tool manages the tags.
 
 ## Filters
 
@@ -33,6 +33,8 @@ The plugin also injects Open Graph and Twitter Card tags for external images so 
 - `xefi_resolve_flickr_sizes( $url, $sizes, $context )` — Override the selected Flickr size URL.
 - `xefi_thumbnail_img_attrs( $attrs, $post_id )` — Modify attributes on the generated `<img>` tag.
 - `xefi_og_enabled( $enabled, $post_id )` — Disable Open Graph/Twitter tag output.
+- `xefi_og_site_name( $site_name )` — Modify the generated `og:site_name` value.
+- `xefi_fb_app_id( $app_id )` — Filter the Facebook App ID used in Open Graph tags.
 - `xefi_cache_ttl( $seconds, $photo_id )` — Adjust Flickr cache duration globally.
 
 ## Requirements

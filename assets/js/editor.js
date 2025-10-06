@@ -83,6 +83,7 @@
         }, [ source, url, supportsFlickr ] );
 
         useEffect( () => {
+            console.log( 'XEFI useEffect triggered', { source, url, resolvedUrl, validationMessage, supportsFlickr, previewUrl } );
             let controller = null;
             let timeoutId = null;
             let active = true;
@@ -95,6 +96,7 @@
             setRemoteError( '' );
 
             if ( source !== SOURCE_EXTERNAL ) {
+                console.log( 'XEFI: source is not external' );
                 setPreviewUrl( '' );
                 setIsResolving( false );
                 return () => {
@@ -103,6 +105,7 @@
             }
 
             if ( validationMessage ) {
+                console.log( 'XEFI: validation message present', validationMessage );
                 setPreviewUrl( '' );
                 setIsResolving( false );
                 return () => {
@@ -111,6 +114,7 @@
             }
 
             if ( url && isDirectImage( url ) && isHttps( url ) ) {
+                console.log( 'XEFI: direct image detected', url );
                 if ( previewUrl !== url ) {
                     setPreviewUrl( url );
                 }
@@ -128,7 +132,9 @@
             }
 
             if ( url && isFlickrUrl( url ) ) {
+                console.log( 'XEFI: Flickr URL detected', { url, resolvedUrl, supportsFlickr, apiFetch: !! apiFetch, previewUrl } );
                 if ( resolvedUrl ) {
+                    console.log( 'XEFI: using cached resolved URL', resolvedUrl );
                     if ( previewUrl !== resolvedUrl ) {
                         setPreviewUrl( resolvedUrl );
                     }
@@ -139,6 +145,7 @@
                 }
 
                 if ( ! supportsFlickr || ! apiFetch ) {
+                    console.log( 'XEFI: Flickr not supported or apiFetch missing' );
                     setPreviewUrl( '' );
                     setIsResolving( false );
                     return () => {
@@ -147,12 +154,14 @@
                 }
 
                 if ( previewUrl ) {
+                    console.log( 'XEFI: previewUrl already set, skipping fetch' );
                     setIsResolving( false );
                     return () => {
                         active = false;
                     };
                 }
 
+                console.log( 'XEFI: fetching from API' );
                 controller = new AbortController();
                 requestRef.current = controller;
                 setIsResolving( true );

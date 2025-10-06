@@ -5,10 +5,11 @@
 
     const { registerPlugin } = wp.plugins;
     const { PluginDocumentSettingPanel } = wp.editPost;
-    const { RadioControl, TextControl, Notice } = wp.components;
+    const { RadioControl, TextControl, Notice, Spinner } = wp.components;
     const { useSelect, useDispatch } = wp.data;
     const { __ } = wp.i18n;
-    const { Fragment, useMemo } = wp.element;
+    const { Fragment, useMemo, useEffect, useState, useRef } = wp.element;
+    const apiFetch = wp.apiFetch;
 
     const data = window.XEFIEditorData || {};
     const strings = data.strings || {};
@@ -27,7 +28,7 @@
     const isFlickrUrl = ( value ) => /^https:\/\/(?:www\.)?flickr\.com\/photos\/[^/]+\/\d+(?:\/|$)/i.test( value );
 
     const Panel = () => {
-        const { meta, source, url, resolvedUrl, error, hasFeatured } = useSelect( ( select ) => {
+        const { meta, source, url, resolvedUrl, error, hasFeatured, postId } = useSelect( ( select ) => {
             const editor = select( 'core/editor' );
             const currentMeta = editor.getEditedPostAttribute( 'meta' ) || {};
             return {
@@ -37,6 +38,7 @@
                 resolvedUrl: ensureString( currentMeta._xefi_resolved ),
                 error: ensureString( currentMeta._xefi_error ),
                 hasFeatured: !! editor.getEditedPostAttribute( 'featured_media' ),
+                postId: editor.getCurrentPostId ? editor.getCurrentPostId() : 0,
             };
         }, [] );
 
@@ -45,6 +47,11 @@
         const updateMeta = ( updates ) => {
             editPost( { meta: { ...meta, ...updates } } );
         };
+
+        const [ previewUrl, setPreviewUrl ] = useState( '' );
+        const [ isResolving, setIsResolving ] = useState( false );
+        const [ remoteError, setRemoteError ] = useState( '' );
+        const requestRef = useRef( null );
 
         const validationMessage = useMemo( () => {
             if ( source !== SOURCE_EXTERNAL ) {
@@ -74,34 +81,122 @@
             return '';
         }, [ source, url, supportsFlickr ] );
 
-        const combinedError = validationMessage || error;
+        useEffect( () => {
+            let controller = null;
+            let timeoutId = null;
+            let active = true;
 
-        const previewUrl = useMemo( () => {
+            if ( requestRef.current ) {
+                requestRef.current.abort();
+                requestRef.current = null;
+            }
+
+            setRemoteError( '' );
+
             if ( source !== SOURCE_EXTERNAL ) {
-                console.log( 'XEFI Preview: source is not external', source );
-                return '';
+                setPreviewUrl( '' );
+                setIsResolving( false );
+                return () => {
+                    active = false;
+                };
             }
 
-            if ( combinedError ) {
-                console.log( 'XEFI Preview: combinedError present', combinedError );
-                return '';
+            if ( validationMessage ) {
+                setPreviewUrl( '' );
+                setIsResolving( false );
+                return () => {
+                    active = false;
+                };
             }
 
-            // For direct images, show immediately
             if ( url && isDirectImage( url ) && isHttps( url ) ) {
-                console.log( 'XEFI Preview: showing direct image', url );
-                return url;
+                setPreviewUrl( url );
+                setIsResolving( false );
+                return () => {
+                    active = false;
+                };
             }
 
-            // For Flickr URLs, show resolved URL if available
-            if ( url && isFlickrUrl( url ) && resolvedUrl ) {
-                console.log( 'XEFI Preview: showing resolved Flickr URL', resolvedUrl );
-                return resolvedUrl;
+            if ( url && isFlickrUrl( url ) ) {
+                if ( resolvedUrl ) {
+                    setPreviewUrl( resolvedUrl );
+                    setIsResolving( false );
+                    return () => {
+                        active = false;
+                    };
+                }
+
+                if ( ! supportsFlickr || ! apiFetch ) {
+                    setPreviewUrl( '' );
+                    setIsResolving( false );
+                    return () => {
+                        active = false;
+                    };
+                }
+
+                controller = new AbortController();
+                requestRef.current = controller;
+                setIsResolving( true );
+
+                timeoutId = setTimeout( () => {
+                    apiFetch( {
+                        path: '/xefi/v1/resolve',
+                        method: 'POST',
+                        data: {
+                            url,
+                            postId: postId || 0,
+                        },
+                        signal: controller.signal,
+                    } )
+                        .then( ( response ) => {
+                            if ( ! active || controller.signal.aborted ) {
+                                return;
+                            }
+
+                            requestRef.current = null;
+                            setPreviewUrl( ensureString( response && response.url ) );
+                            setRemoteError( '' );
+                            setIsResolving( false );
+                        } )
+                        .catch( ( fetchError ) => {
+                            if ( ! active || controller.signal.aborted ) {
+                                return;
+                            }
+
+                            requestRef.current = null;
+                            const message = ensureString( fetchError && fetchError.message )
+                                || ensureString( fetchError && fetchError.data && fetchError.data.message )
+                                || strings.invalidUrl
+                                || __( 'Enter a valid HTTPS image URL or Flickr page URL.', 'wp-external-featured-image' );
+
+                            setRemoteError( message );
+                            setPreviewUrl( '' );
+                            setIsResolving( false );
+                        } );
+                }, 400 );
+
+                return () => {
+                    active = false;
+                    if ( timeoutId ) {
+                        clearTimeout( timeoutId );
+                    }
+                    if ( controller ) {
+                        controller.abort();
+                    }
+                    requestRef.current = null;
+                    setIsResolving( false );
+                };
             }
 
-            console.log( 'XEFI Preview: no preview', { url, resolvedUrl, isFlickr: isFlickrUrl( url ) } );
-            return '';
-        }, [ source, url, resolvedUrl, combinedError ] );
+            setPreviewUrl( '' );
+            setIsResolving( false );
+
+            return () => {
+                active = false;
+            };
+        }, [ source, url, resolvedUrl, validationMessage, supportsFlickr, postId ] );
+
+        const combinedError = validationMessage || remoteError || error;
 
         return (
             <PluginDocumentSettingPanel
@@ -130,6 +225,19 @@
                         />
                         { combinedError && (
                             <Notice status="error" isDismissible={ false }>{ combinedError }</Notice>
+                        ) }
+                        { isResolving && ! previewUrl && (
+                            <div
+                                style={ {
+                                    marginTop: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                } }
+                            >
+                                <Spinner />
+                                <span>{ strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) }</span>
+                            </div>
                         ) }
                         { previewUrl && (
                             <div style={ { marginTop: '12px' } }>

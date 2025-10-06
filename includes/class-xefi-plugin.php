@@ -9,6 +9,7 @@ namespace XEFI;
 
 use WP_Error;
 use WP_Post;
+use WP_REST_Request;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -72,6 +73,7 @@ class Plugin {
         add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor_assets' ] );
         add_action( 'add_meta_boxes', [ $this, 'register_meta_box' ] );
         add_action( 'save_post', [ $this, 'handle_save_post' ], 20, 3 );
+        add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
         add_filter( 'has_post_thumbnail', [ $this, 'filter_has_post_thumbnail' ], 10, 3 );
         add_filter( 'post_thumbnail_html', [ $this, 'filter_post_thumbnail_html' ], 10, 5 );
         add_filter( 'get_the_post_thumbnail_url', [ $this, 'filter_post_thumbnail_url' ], 10, 3 );
@@ -198,7 +200,7 @@ class Plugin {
         wp_register_script(
             $handle,
             XEFI_PLUGIN_URL . 'assets/js/editor.js',
-            [ 'wp-data', 'wp-edit-post', 'wp-components', 'wp-element', 'wp-i18n', 'wp-plugins', 'wp-compose' ],
+            [ 'wp-data', 'wp-edit-post', 'wp-components', 'wp-element', 'wp-i18n', 'wp-plugins', 'wp-compose', 'wp-api-fetch' ],
             XEFI_PLUGIN_VERSION,
             true
         );
@@ -221,6 +223,7 @@ class Plugin {
                     'invalidUrl'     => __( 'Enter a valid HTTPS image URL or Flickr page URL.', 'wp-external-featured-image' ),
                     'nativeOverride' => __( 'A native featured image is set. It will override the external image.', 'wp-external-featured-image' ),
                     'flickrApiKeyRequired' => __( 'Add a Flickr API key to resolve Flickr URLs.', 'wp-external-featured-image' ),
+                    'resolvingPreview'     => __( 'Resolving preview…', 'wp-external-featured-image' ),
                 ],
                 'validation' => [
                     'imageExtensions' => [ 'jpg', 'jpeg', 'png' ],
@@ -232,6 +235,88 @@ class Plugin {
         );
 
         wp_enqueue_script( $handle );
+    }
+
+    /**
+     * Registers REST API routes used by the block editor integration.
+     */
+    public function register_rest_routes(): void {
+        register_rest_route(
+            'xefi/v1',
+            '/resolve',
+            [
+                'methods'             => 'POST',
+                'callback'            => [ $this, 'handle_rest_resolve' ],
+                'permission_callback' => [ $this, 'can_resolve_request' ],
+                'args'                => [
+                    'postId' => [
+                        'type'     => 'integer',
+                        'required' => true,
+                    ],
+                    'url'    => [
+                        'type'     => 'string',
+                        'required' => true,
+                    ],
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Permission callback for the resolve REST endpoint.
+     */
+    public function can_resolve_request( WP_REST_Request $request ): bool {
+        $post_id = (int) $request->get_param( 'postId' );
+        if ( $post_id <= 0 ) {
+            return current_user_can( 'edit_posts' );
+        }
+
+        return current_user_can( 'edit_post', $post_id );
+    }
+
+    /**
+     * Resolve a URL for previewing in the editor.
+     */
+    public function handle_rest_resolve( WP_REST_Request $request ) {
+        $raw_url = (string) $request->get_param( 'url' );
+        $url     = $this->sanitize_meta_url( $raw_url );
+
+        if ( '' === $url ) {
+            return new WP_Error( 'xefi_invalid_url', __( 'Enter a direct .jpg/.png image URL or a Flickr photo URL.', 'wp-external-featured-image' ), [ 'status' => 400 ] );
+        }
+
+        if ( $this->is_direct_image_url( $url ) ) {
+            return [
+                'url'          => $url,
+                'original_url' => $url,
+                'type'         => 'direct',
+            ];
+        }
+
+        if ( ! $this->is_flickr_url( $url ) ) {
+            return new WP_Error( 'xefi_invalid_url', __( 'Enter a direct .jpg/.png image URL or a Flickr photo URL.', 'wp-external-featured-image' ), [ 'status' => 400 ] );
+        }
+
+        $settings = $this->get_settings();
+
+        if ( ! empty( $settings['flickr_api_key'] ) ) {
+            $settings['flickr_api_key'] = Encryption::decrypt( $settings['flickr_api_key'] );
+        }
+
+        $resolver = Flickr_Resolver::instance();
+        $result   = $resolver->resolve( $url, $settings );
+
+        if ( is_wp_error( $result ) ) {
+            $result->add_data( [ 'status' => 400 ] );
+            return $result;
+        }
+
+        return [
+            'url'          => $result['url'],
+            'original_url' => $url,
+            'photo_id'     => $result['photo_id'],
+            'type'         => 'flickr',
+        ];
     }
 
     /**

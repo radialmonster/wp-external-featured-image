@@ -242,6 +242,8 @@
 
         const combinedError = validationMessage || remoteError || error;
 
+        console.log( 'XEFI render', { previewUrl, isResolving, combinedError, source } );
+
         return createElement(
             PluginDocumentSettingPanel,
             {

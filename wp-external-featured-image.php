@@ -1,12 +1,15 @@
 <?php
 /**
  * Plugin Name: WP External Featured Image
+ * Plugin URI: https://github.com/radialmonster/wp-external-featured-image
  * Description: Use external or Flickr-hosted images as featured images, complete with social meta tags.
  * Version: 1.0.0
- * Author: Your Company
+ * Author: RadialMonster
  * Text Domain: wp-external-featured-image
  * Requires at least: 6.2
  * Requires PHP: 8.0
+ * GitHub Plugin URI: radialmonster/wp-external-featured-image
+ * Primary Branch: main
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

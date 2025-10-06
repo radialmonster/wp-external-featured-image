@@ -215,7 +215,7 @@ class Plugin {
             'XEFIEditorData',
             [
                 'strings' => [
-                    'panelTitle'     => __( 'Featured Image Source', 'wp-external-featured-image' ),
+                    'panelTitle'     => __( 'WP External Featured Image (Block)', 'wp-external-featured-image' ),
                     'fieldLabel'     => __( 'External image or Flickr page URL', 'wp-external-featured-image' ),
                     'helperText'     => __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ),
                     'mediaLibrary'   => __( 'Media Library', 'wp-external-featured-image' ),
@@ -323,11 +323,17 @@ class Plugin {
      * Registers the classic editor meta box.
      */
     public function register_meta_box(): void {
+        // Don't show classic meta box in block editor since we have the panel.
+        $screen = get_current_screen();
+        if ( $screen && $screen->is_block_editor() ) {
+            return;
+        }
+
         $post_types = get_post_types_by_support( 'thumbnail' );
         foreach ( $post_types as $post_type ) {
             add_meta_box(
                 'xefi-external-featured-image',
-                __( 'External Featured Image', 'wp-external-featured-image' ),
+                __( 'WP External Featured Image (Classic)', 'wp-external-featured-image' ),
                 [ $this, 'render_meta_box' ],
                 $post_type,
                 'side',

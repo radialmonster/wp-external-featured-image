@@ -24,16 +24,17 @@
     const imageExtensions = validation.imageExtensions || [ 'jpg', 'jpeg', 'png' ];
     const imageRegex = new RegExp( `\.(${ imageExtensions.join( '|' ) })($|[?&#])`, 'i' );
     const isDirectImage = ( value ) => imageRegex.test( value );
-    const isFlickrUrl = ( value ) => /^https:\/\/(?:www\.)?flickr\.com\/photos\/[^/]+\/\d+\/?/i.test( value );
+    const isFlickrUrl = ( value ) => /^https:\/\/(?:www\.)?flickr\.com\/photos\/[^/]+\/\d+(?:\/|$)/i.test( value );
 
     const Panel = () => {
-        const { meta, source, url, error, hasFeatured } = useSelect( ( select ) => {
+        const { meta, source, url, resolvedUrl, error, hasFeatured } = useSelect( ( select ) => {
             const editor = select( 'core/editor' );
             const currentMeta = editor.getEditedPostAttribute( 'meta' ) || {};
             return {
                 meta: currentMeta,
                 source: ensureString( currentMeta._xefi_source ) || SOURCE_MEDIA,
                 url: ensureString( currentMeta._xefi_url ),
+                resolvedUrl: ensureString( currentMeta._xefi_resolved_url ),
                 error: ensureString( currentMeta._xefi_error ),
                 hasFeatured: !! editor.getEditedPostAttribute( 'featured_media' ),
             };
@@ -75,6 +76,28 @@
 
         const combinedError = validationMessage || error;
 
+        const previewUrl = useMemo( () => {
+            if ( source !== SOURCE_EXTERNAL ) {
+                return '';
+            }
+
+            if ( combinedError ) {
+                return '';
+            }
+
+            // For direct images, show immediately
+            if ( url && isDirectImage( url ) && isHttps( url ) ) {
+                return url;
+            }
+
+            // For Flickr URLs, show resolved URL if available
+            if ( url && isFlickrUrl( url ) && resolvedUrl ) {
+                return resolvedUrl;
+            }
+
+            return '';
+        }, [ source, url, resolvedUrl, combinedError ] );
+
         return (
             <PluginDocumentSettingPanel
                 name="xefi-featured-image-source"
@@ -102,6 +125,20 @@
                         />
                         { combinedError && (
                             <Notice status="error" isDismissible={ false }>{ combinedError }</Notice>
+                        ) }
+                        { previewUrl && (
+                            <div style={ { marginTop: '12px' } }>
+                                <img
+                                    src={ previewUrl }
+                                    alt={ __( 'External featured image preview', 'wp-external-featured-image' ) }
+                                    style={ {
+                                        width: '100%',
+                                        height: 'auto',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd'
+                                    } }
+                                />
+                            </div>
                         ) }
                     </Fragment>
                 ) }

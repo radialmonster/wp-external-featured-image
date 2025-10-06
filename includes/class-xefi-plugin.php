@@ -323,6 +323,12 @@ class Plugin {
      * Registers the classic editor meta box.
      */
     public function register_meta_box(): void {
+        // Don't show classic meta box in block editor since we have the panel.
+        $screen = get_current_screen();
+        if ( $screen && $screen->is_block_editor() ) {
+            return;
+        }
+
         $post_types = get_post_types_by_support( 'thumbnail' );
         foreach ( $post_types as $post_type ) {
             add_meta_box(
@@ -334,6 +340,53 @@ class Plugin {
                 'low'
             );
         }
+
+        // Enqueue classic editor JavaScript.
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_classic_editor_assets' ] );
+    }
+
+    /**
+     * Enqueue assets for the classic editor.
+     */
+    public function enqueue_classic_editor_assets( string $hook ): void {
+        if ( ! in_array( $hook, [ 'post.php', 'post-new.php' ], true ) ) {
+            return;
+        }
+
+        $screen = get_current_screen();
+        if ( ! $screen || $screen->is_block_editor() ) {
+            return;
+        }
+
+        $asset_path = XEFI_PLUGIN_DIR . 'assets/js/classic-editor.js';
+        if ( ! file_exists( $asset_path ) ) {
+            return;
+        }
+
+        $handle = 'xefi-classic-editor';
+        wp_enqueue_script(
+            $handle,
+            XEFI_PLUGIN_URL . 'assets/js/classic-editor.js',
+            [ 'jquery', 'wp-api' ],
+            XEFI_PLUGIN_VERSION,
+            true
+        );
+
+        $settings = $this->get_settings();
+        $flickr_api_key = ! empty( $settings['flickr_api_key'] ) ? Encryption::decrypt( $settings['flickr_api_key'] ) : '';
+
+        wp_localize_script(
+            $handle,
+            'XEFIEditorData',
+            [
+                'validation' => [
+                    'imageExtensions' => [ 'jpg', 'jpeg', 'png' ],
+                ],
+                'settings' => [
+                    'supportsFlickr' => ! empty( $flickr_api_key ),
+                ],
+            ]
+        );
     }
 
     /**

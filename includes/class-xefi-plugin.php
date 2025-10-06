@@ -223,12 +223,17 @@ class Plugin {
                     'nativeOverride' => __( 'A native featured image is set. It will override the external image.', 'wp-external-featured-image' ),
                     'flickrApiKeyRequired' => __( 'Add a Flickr API key to resolve Flickr URLs.', 'wp-external-featured-image' ),
                     'resolvingPreview'     => __( 'Resolving preview…', 'wp-external-featured-image' ),
+                    'ogDisabled'           => __( 'Open Graph output is disabled. Enable it in the plugin settings so social platforms use the external image.', 'wp-external-featured-image' ),
+                    'ogEnabled'            => __( 'Open Graph output is enabled. Social platforms will use the resolved external image when no featured image exists.', 'wp-external-featured-image' ),
+                    'manageOgSettings'     => __( 'Manage Open Graph settings', 'wp-external-featured-image' ),
                 ],
                 'validation' => [
                     'imageExtensions' => [ 'jpg', 'jpeg', 'png' ],
                 ],
                 'settings' => [
-                    'supportsFlickr' => '' !== $settings['flickr_api_key'],
+                    'supportsFlickr'    => '' !== $settings['flickr_api_key'],
+                    'openGraphEnabled'  => ! empty( $settings['open_graph_enabled'] ),
+                    'settingsUrl'       => admin_url( 'options-general.php?page=xefi-settings' ),
                 ],
             ]
         );
@@ -417,6 +422,22 @@ class Plugin {
         <?php endif; ?>
         <?php if ( $error ) : ?>
             <p><strong><?php esc_html_e( 'Error:', 'wp-external-featured-image' ); ?></strong> <?php echo esc_html( $error ); ?></p>
+        <?php endif; ?>
+        <?php
+        $settings     = $this->get_settings();
+        $settings_url = esc_url( admin_url( 'options-general.php?page=xefi-settings' ) );
+
+        if ( empty( $settings['open_graph_enabled'] ) ) :
+            ?>
+            <p class="description">
+                <?php esc_html_e( 'Open Graph tags are currently disabled.', 'wp-external-featured-image' ); ?>
+                <a href="<?php echo $settings_url; ?>"><?php esc_html_e( 'Manage Open Graph settings', 'wp-external-featured-image' ); ?></a>
+            </p>
+        <?php else : ?>
+            <p class="description">
+                <?php esc_html_e( 'Open Graph and Twitter Card tags for external images are enabled.', 'wp-external-featured-image' ); ?>
+                <a href="<?php echo $settings_url; ?>"><?php esc_html_e( 'Update settings', 'wp-external-featured-image' ); ?></a>
+            </p>
         <?php endif; ?>
         <?php
     }
@@ -895,6 +916,15 @@ class Plugin {
             'xefi-settings'
         );
 
+        add_settings_section(
+            'xefi_social',
+            __( 'Social Sharing', 'wp-external-featured-image' ),
+            function () {
+                echo '<p>' . esc_html__( 'Control how the plugin exposes Open Graph and Twitter Card metadata.', 'wp-external-featured-image' ) . '</p>';
+            },
+            'xefi-settings'
+        );
+
         add_settings_field(
             'xefi_flickr_api_key',
             __( 'Flickr API key', 'wp-external-featured-image' ),
@@ -916,7 +946,7 @@ class Plugin {
             __( 'Output Open Graph tags', 'wp-external-featured-image' ),
             [ $this, 'render_setting_open_graph_enabled' ],
             'xefi-settings',
-            'xefi_main'
+            'xefi_social'
         );
 
         add_settings_field(
@@ -1047,7 +1077,7 @@ class Plugin {
             <input type="checkbox" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[open_graph_enabled]" value="1" <?php checked( $enabled ); ?> />
             <?php esc_html_e( 'Enable Open Graph tags when no local featured image exists.', 'wp-external-featured-image' ); ?>
         </label>
-        <p class="description"><?php esc_html_e( 'Leave unchecked if another SEO or social plugin manages these tags.', 'wp-external-featured-image' ); ?></p>
+        <p class="description"><?php esc_html_e( 'Leave unchecked if another SEO or social plugin manages these tags. When enabled, Twitter Card tags are also output.', 'wp-external-featured-image' ); ?></p>
         <?php
     }
 

@@ -332,15 +332,14 @@
             );
         }
 
-        return createElement(
+        return createElement.apply( null, [
             PluginDocumentSettingPanel,
             {
                 name: 'xefi-featured-image-source',
                 title: strings.panelTitle || __( 'Featured Image Source', 'wp-external-featured-image' ),
                 className: 'xefi-featured-image-panel',
-            },
-            ...children
-        );
+            }
+        ].concat( children ) );
     };
 
     registerPlugin( 'xefi-featured-image-source', { render: Panel } );

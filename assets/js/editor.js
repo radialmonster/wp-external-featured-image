@@ -20,9 +20,6 @@
     const openGraphEnabled = !! ( data.settings && data.settings.openGraphEnabled );
     const settingsUrl = ensureString( data.settings && data.settings.settingsUrl );
 
-    const SOURCE_MEDIA = 'media';
-    const SOURCE_EXTERNAL = 'external';
-
     const isHttps = ( value ) => /^https:\/\//i.test( value );
     const imageExtensions = validation.imageExtensions || [ 'jpg', 'jpeg', 'png' ];
     const imageRegex = new RegExp( `\.(${ imageExtensions.join( '|' ) })($|[?&#])`, 'i' );
@@ -30,12 +27,11 @@
     const isFlickrUrl = ( value ) => /^https:\/\/(?:www\.)?flickr\.com\/photos\/[^/]+\/\d+(?:\/|$)/i.test( value );
 
     const Panel = () => {
-        const { meta, source, url, resolvedUrl, error, photoId, hasFeatured, postId } = useSelect( ( select ) => {
+        const { meta, url, resolvedUrl, error, photoId, hasFeatured, postId } = useSelect( ( select ) => {
             const editor = select( 'core/editor' );
             const currentMeta = editor.getEditedPostAttribute( 'meta' ) || {};
             return {
                 meta: currentMeta,
-                source: ensureString( currentMeta._xefi_source ) || SOURCE_MEDIA,
                 url: ensureString( currentMeta._xefi_url ),
                 resolvedUrl: ensureString( currentMeta._xefi_resolved ),
                 error: ensureString( currentMeta._xefi_error ),
@@ -57,10 +53,6 @@
         const requestRef = useRef( null );
 
         const validationMessage = useMemo( () => {
-            if ( source !== SOURCE_EXTERNAL ) {
-                return '';
-            }
-
             if ( ! url ) {
                 return '';
             }
@@ -82,10 +74,10 @@
             }
 
             return '';
-        }, [ source, url, supportsFlickr ] );
+        }, [ url, supportsFlickr ] );
 
         useEffect( () => {
-            console.log( 'XEFI useEffect triggered', { source, url, resolvedUrl, validationMessage, supportsFlickr, previewUrl } );
+            console.log( 'XEFI useEffect triggered', { url, resolvedUrl, validationMessage, supportsFlickr, previewUrl } );
             let controller = null;
             let timeoutId = null;
             let active = true;
@@ -96,15 +88,6 @@
             }
 
             setRemoteError( '' );
-
-            if ( source !== SOURCE_EXTERNAL ) {
-                console.log( 'XEFI: source is not external' );
-                setPreviewUrl( '' );
-                setIsResolving( false );
-                return () => {
-                    active = false;
-                };
-            }
 
             if ( validationMessage ) {
                 console.log( 'XEFI: validation message present', validationMessage );
@@ -240,22 +223,13 @@
             return () => {
                 active = false;
             };
-        }, [ source, url, resolvedUrl, validationMessage, supportsFlickr, postId, error, photoId, previewUrl ] );
+        }, [ url, resolvedUrl, validationMessage, supportsFlickr, postId, error, photoId, previewUrl ] );
 
         const combinedError = validationMessage || remoteError || error;
 
-        console.log( 'XEFI render', { previewUrl, isResolving, combinedError, source } );
+        console.log( 'XEFI render', { previewUrl, isResolving, combinedError } );
 
-        const children = [
-            createElement( RadioControl, {
-                selected: source,
-                options: [
-                    { label: strings.mediaLibrary || __( 'Media Library', 'wp-external-featured-image' ), value: SOURCE_MEDIA },
-                    { label: strings.externalSource || __( 'External', 'wp-external-featured-image' ), value: SOURCE_EXTERNAL },
-                ],
-                onChange: ( value ) => updateMeta( { _xefi_source: value } ),
-            } ),
-        ];
+        const children = [];
 
         const ogNoticeContent = [];
         if ( openGraphEnabled ) {
@@ -286,71 +260,69 @@
             )
         );
 
-        if ( source === SOURCE_EXTERNAL ) {
+        children.push(
+            createElement( TextControl, {
+                type: 'url',
+                label: strings.fieldLabel || __( 'External image or Flickr page URL', 'wp-external-featured-image' ),
+                help: strings.helperText || __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ),
+                value: url,
+                onChange: ( value ) => {
+                    if ( value !== url ) {
+                        updateMeta( {
+                            _xefi_url: value,
+                            _xefi_resolved: '',
+                            _xefi_error: '',
+                            _xefi_photo_id: '',
+                        } );
+                        setPreviewUrl( '' );
+                        setRemoteError( '' );
+                    } else {
+                        updateMeta( { _xefi_url: value } );
+                    }
+                },
+            } )
+        );
+
+        if ( combinedError ) {
+            children.push( createElement( Notice, { status: 'error', isDismissible: false }, combinedError ) );
+        }
+
+        if ( isResolving && ! previewUrl ) {
             children.push(
-                createElement( TextControl, {
-                    type: 'url',
-                    label: strings.fieldLabel || __( 'External image or Flickr page URL', 'wp-external-featured-image' ),
-                    help: strings.helperText || __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ),
-                    value: url,
-                    onChange: ( value ) => {
-                        if ( value !== url ) {
-                            updateMeta( {
-                                _xefi_url: value,
-                                _xefi_resolved: '',
-                                _xefi_error: '',
-                                _xefi_photo_id: '',
-                            } );
-                            setPreviewUrl( '' );
-                            setRemoteError( '' );
-                        } else {
-                            updateMeta( { _xefi_url: value } );
-                        }
-                    },
-                } )
-            );
-
-            if ( combinedError ) {
-                children.push( createElement( Notice, { status: 'error', isDismissible: false }, combinedError ) );
-            }
-
-            if ( isResolving && ! previewUrl ) {
-                children.push(
-                    createElement(
-                        'div',
-                        {
-                            style: {
-                                marginTop: '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                            },
+                createElement(
+                    'div',
+                    {
+                        style: {
+                            marginTop: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
                         },
-                        createElement( Spinner, null ),
-                        createElement( 'span', null, strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) )
-                    )
-                );
-            }
+                    },
+                    createElement( Spinner, null ),
+                    createElement( 'span', null, strings.resolvingPreview || __( 'Resolving preview…', 'wp-external-featured-image' ) )
+                )
+            );
+        }
 
-            if ( previewUrl ) {
-                console.log( 'XEFI: Adding image to children', previewUrl );
-                children.push(
-                    createElement(
-                        'div',
-                        { style: { marginTop: '12px' } },
-                        createElement( 'img', {
-                            src: previewUrl,
-                            alt: __( 'External featured image preview', 'wp-external-featured-image' ),
-                            style: {
-                                width: '100%',
-                                height: 'auto',
-                                borderRadius: '4px',
-                                border: '1px solid #ddd',
-                            },
-                        } )
-                    )
-                );
-            }
+        if ( previewUrl ) {
+            console.log( 'XEFI: Adding image to children', previewUrl );
+            children.push(
+                createElement(
+                    'div',
+                    { style: { marginTop: '12px' } },
+                    createElement( 'img', {
+                        src: previewUrl,
+                        alt: __( 'External featured image preview', 'wp-external-featured-image' ),
+                        style: {
+                            width: '100%',
+                            height: 'auto',
+                            borderRadius: '4px',
+                            border: '1px solid #ddd',
+                        },
+                    } )
+                )
+            );
         }
 
         if ( hasFeatured ) {

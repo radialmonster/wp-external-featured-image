@@ -44,7 +44,6 @@
     }
 
     function updatePreview() {
-        const source = $('input[name="_xefi_source"]:checked').val();
         const url = $('#xefi-external-url').val();
 
         if (currentRequest) {
@@ -52,7 +51,7 @@
             currentRequest = null;
         }
 
-        if (source !== 'external' || !url) {
+        if (!url) {
             hidePreview();
             return;
         }
@@ -111,9 +110,6 @@
     }
 
     $(document).ready(function() {
-        // Update preview on source change
-        $('input[name="_xefi_source"]').on('change', updatePreview);
-
         // Update preview on URL change (with debounce)
         let urlTimeout;
         $('#xefi-external-url').on('input', function() {

@@ -34,7 +34,6 @@ class Plugin {
     /**
      * Meta keys used by the plugin.
      */
-    public const META_SOURCE        = '_xefi_source';
     public const META_URL           = '_xefi_url';
     public const META_RESOLVED      = '_xefi_resolved';
     public const META_RESOLVED_AT   = '_xefi_resolved_at';
@@ -96,19 +95,6 @@ class Plugin {
         $auth_callback = static function ( $allowed, $meta_key, $post_id ) {
             return current_user_can( 'edit_post', $post_id );
         };
-
-        register_post_meta(
-            '',
-            self::META_SOURCE,
-            [
-                'type'              => 'string',
-                'single'            => true,
-                'default'           => 'media',
-                'show_in_rest'      => true,
-                'auth_callback'     => $auth_callback,
-                'sanitize_callback' => [ $this, 'sanitize_meta_source' ],
-            ]
-        );
 
         register_post_meta(
             '',
@@ -217,14 +203,12 @@ class Plugin {
                     'panelTitle'     => __( 'WP External Featured Image (Block)', 'wp-external-featured-image' ),
                     'fieldLabel'     => __( 'External image or Flickr page URL', 'wp-external-featured-image' ),
                     'helperText'     => __( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ),
-                    'mediaLibrary'   => __( 'Media Library', 'wp-external-featured-image' ),
-                    'externalSource' => __( 'External', 'wp-external-featured-image' ),
                     'invalidUrl'     => __( 'Enter a valid HTTPS image URL or Flickr page URL.', 'wp-external-featured-image' ),
-                    'nativeOverride' => __( 'A native featured image is set. It will override the external image.', 'wp-external-featured-image' ),
+                    'nativeOverride' => __( 'WordPress featured image is set and will be used instead. Remove it to use the external image below.', 'wp-external-featured-image' ),
                     'flickrApiKeyRequired' => __( 'Add a Flickr API key to resolve Flickr URLs.', 'wp-external-featured-image' ),
                     'resolvingPreview'     => __( 'Resolving preview…', 'wp-external-featured-image' ),
-                    'ogDisabled'           => __( 'Open Graph output is disabled. Enable it in the plugin settings so social platforms use the external image.', 'wp-external-featured-image' ),
-                    'ogEnabled'            => __( 'Open Graph output is enabled. Social platforms will use the resolved external image when no featured image exists.', 'wp-external-featured-image' ),
+                    'ogDisabled'           => __( 'Open Graph tags are disabled. When enabled, social platforms will use your external image (only when WordPress featured image is not set).', 'wp-external-featured-image' ),
+                    'ogEnabled'            => __( 'Open Graph tags are enabled. When you add an external image below and no WordPress featured image is set, social platforms will use your external image.', 'wp-external-featured-image' ),
                     'manageOgSettings'     => __( 'Manage Open Graph settings', 'wp-external-featured-image' ),
                 ],
                 'validation' => [
@@ -395,21 +379,10 @@ class Plugin {
     public function render_meta_box( WP_Post $post ): void {
         wp_nonce_field( 'xefi_save_meta', 'xefi_meta_nonce' );
 
-        $source   = get_post_meta( $post->ID, self::META_SOURCE, true ) ?: 'media';
         $url      = get_post_meta( $post->ID, self::META_URL, true );
         $error    = get_post_meta( $post->ID, self::META_ERROR, true );
         $has_native = (bool) get_post_meta( $post->ID, '_thumbnail_id', true );
         ?>
-        <p>
-            <label>
-                <input type="radio" name="<?php echo esc_attr( self::META_SOURCE ); ?>" value="media" <?php checked( 'media', $source ); ?> />
-                <?php esc_html_e( 'Media Library (default)', 'wp-external-featured-image' ); ?>
-            </label><br />
-            <label>
-                <input type="radio" name="<?php echo esc_attr( self::META_SOURCE ); ?>" value="external" <?php checked( 'external', $source ); ?> />
-                <?php esc_html_e( 'External', 'wp-external-featured-image' ); ?>
-            </label>
-        </p>
         <p>
             <label for="xefi-external-url">
                 <?php esc_html_e( 'External image or Flickr page URL', 'wp-external-featured-image' ); ?>
@@ -418,7 +391,10 @@ class Plugin {
             <span class="description"><?php esc_html_e( 'Paste a direct image URL (.jpg/.png) or a Flickr photo URL.', 'wp-external-featured-image' ); ?></span>
         </p>
         <?php if ( $has_native ) : ?>
-            <p><em><?php esc_html_e( 'A native featured image is set and will be used instead of the external URL.', 'wp-external-featured-image' ); ?></em></p>
+            <p style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px 12px; margin: 12px 0;">
+                <strong><?php esc_html_e( 'Note:', 'wp-external-featured-image' ); ?></strong>
+                <?php esc_html_e( 'WordPress featured image is set and will be used instead. Remove it to use the external image above.', 'wp-external-featured-image' ); ?>
+            </p>
         <?php endif; ?>
         <?php if ( $error ) : ?>
             <p><strong><?php esc_html_e( 'Error:', 'wp-external-featured-image' ); ?></strong> <?php echo esc_html( $error ); ?></p>
@@ -430,12 +406,12 @@ class Plugin {
         if ( empty( $settings['open_graph_enabled'] ) ) :
             ?>
             <p class="description">
-                <?php esc_html_e( 'Open Graph tags are currently disabled.', 'wp-external-featured-image' ); ?>
-                <a href="<?php echo $settings_url; ?>"><?php esc_html_e( 'Manage Open Graph settings', 'wp-external-featured-image' ); ?></a>
+                <?php esc_html_e( 'Open Graph tags are disabled. When enabled, social platforms will use your external image (only when WordPress featured image is not set).', 'wp-external-featured-image' ); ?>
+                <a href="<?php echo $settings_url; ?>"><?php esc_html_e( 'Manage settings', 'wp-external-featured-image' ); ?></a>
             </p>
         <?php else : ?>
             <p class="description">
-                <?php esc_html_e( 'Open Graph and Twitter Card tags for external images are enabled.', 'wp-external-featured-image' ); ?>
+                <?php esc_html_e( 'Open Graph tags are enabled. When an external image is added above and no WordPress featured image is set, social platforms will use your external image.', 'wp-external-featured-image' ); ?>
                 <a href="<?php echo $settings_url; ?>"><?php esc_html_e( 'Update settings', 'wp-external-featured-image' ); ?></a>
             </p>
         <?php endif; ?>
@@ -459,17 +435,11 @@ class Plugin {
         }
 
         if ( isset( $_POST['xefi_meta_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['xefi_meta_nonce'] ) ), 'xefi_save_meta' ) ) {
-            $source = isset( $_POST[ self::META_SOURCE ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::META_SOURCE ] ) ) : 'media';
-            if ( 'external' !== $source ) {
-                $source = 'media';
-            }
-
             $url = '';
             if ( isset( $_POST[ self::META_URL ] ) ) {
                 $url = esc_url_raw( wp_unslash( $_POST[ self::META_URL ] ) );
             }
 
-            update_post_meta( $post_id, self::META_SOURCE, $source );
             update_post_meta( $post_id, self::META_URL, $url );
         }
 
@@ -480,11 +450,10 @@ class Plugin {
      * Ensures the stored metadata reflects the chosen external image.
      */
     protected function process_post_image( int $post_id ): void {
-        $source = get_post_meta( $post_id, self::META_SOURCE, true ) ?: 'media';
-        $url    = trim( (string) get_post_meta( $post_id, self::META_URL, true ) );
+        $url = trim( (string) get_post_meta( $post_id, self::META_URL, true ) );
 
-        if ( 'external' !== $source || '' === $url ) {
-            $this->clear_external_state( $post_id, '' !== $url );
+        if ( '' === $url ) {
+            $this->clear_external_state( $post_id, false );
             $this->clear_error( $post_id );
             return;
         }
@@ -514,14 +483,9 @@ class Plugin {
      * @return array|WP_Error|false
      */
     public function maybe_resolve_post_image( int $post_id, bool $force = false ) {
-        $source = get_post_meta( $post_id, self::META_SOURCE, true );
-        if ( 'external' !== $source ) {
-            return false;
-        }
-
         $url = trim( (string) get_post_meta( $post_id, self::META_URL, true ) );
         if ( '' === $url ) {
-            $this->clear_external_state( $post_id, true );
+            $this->clear_external_state( $post_id, false );
             return new WP_Error( 'xefi_empty_url', __( 'No external URL provided.', 'wp-external-featured-image' ) );
         }
 
@@ -1161,11 +1125,6 @@ class Plugin {
             return false;
         }
 
-        $source = get_post_meta( $post_id, self::META_SOURCE, true );
-        if ( 'external' !== $source ) {
-            return false;
-        }
-
         $data = $this->get_external_image_data( $post_id );
         return ! empty( $data['url'] );
     }
@@ -1175,11 +1134,6 @@ class Plugin {
      */
     public function get_external_image_data( int $post_id ): array {
         if ( $post_id <= 0 ) {
-            return [];
-        }
-
-        $source = get_post_meta( $post_id, self::META_SOURCE, true );
-        if ( 'external' !== $source ) {
             return [];
         }
 
@@ -1240,13 +1194,6 @@ class Plugin {
      */
     protected function clear_error( int $post_id ): void {
         delete_post_meta( $post_id, self::META_ERROR );
-    }
-
-    /**
-     * Sanitize the source meta value.
-     */
-    public function sanitize_meta_source( $value ) {
-        return 'external' === $value ? 'external' : 'media';
     }
 
     /**
